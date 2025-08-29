@@ -1,7 +1,7 @@
 from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
-from django.db.models import F, Q
+from django.db.models import F, Q, Sum
 from .models import Category, InventoryItem, InventoryChange
 from .serializers import CategorySerializer, InventoryItemSerializer, InventoryChangeSerializer
 from .permissions import IsOwner
@@ -85,3 +85,47 @@ class InventoryChangeViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         return InventoryChange.objects.filter(item__created_by=self.request.user).select_related('item', 'user')
+
+
+
+@api_view(["GET"])
+@permission_classes([permissions.IsAuthenticated])
+def inventory_report(request):
+    user = request.user
+
+    # Total value of inventory
+    total_value = InventoryItem.objects.filter(created_by=user).aggregate(
+        total=Sum(F("quantity") * F("price"))
+    )["total"] or 0
+
+    # Stock levels
+    stock_levels = InventoryItem.objects.filter(created_by=user).values(
+        "id", "name", "quantity", "price"
+    )
+
+    # Sales & Restocking history
+    changes_qs = InventoryChange.objects.filter(item__created_by=user).order_by("-timestamp")
+
+    changes = []
+    for change in changes_qs:
+        if change.new_quantity > change.old_quantity:
+            change_type = "restock"
+            quantity_changed = change.new_quantity - change.old_quantity
+        else:
+            change_type = "sale"
+            quantity_changed = change.old_quantity - change.new_quantity
+
+        changes.append({
+            "id": change.id,
+            "item": change.item.name,
+            "change_type": change_type,
+            "quantity_changed": quantity_changed,
+            "changed_by": change.user.username,
+            "timestamp": change.timestamp
+        })
+
+    return Response({
+        "total_value": total_value,
+        "stock_levels": list(stock_levels),
+        "changes": changes
+    })

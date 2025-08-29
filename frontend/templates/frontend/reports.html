@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="mb-3">Inventory Report</h2>
+
+<div class="row mb-4">
+  <div class="col-md-4">
+    <div class="card text-white bg-primary shadow p-3">
+      <h5>Total Inventory Value</h5>
+      <h3 id="totalValue">$0</h3>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4 p-3">
+  <h5>Stock Levels</h5>
+  <table class="table table-striped table-bordered mt-2">
+    <thead class="table-dark">
+      <tr>
+        <th>ID</th>
+        <th>Item</th>
+        <th>Quantity</th>
+      </tr>
+    </thead>
+    <tbody id="stockTable"></tbody>
+  </table>
+</div>
+
+<div class="card p-3">
+  <h5>Recent Inventory Changes</h5>
+  <table class="table table-hover table-bordered mt-2">
+    <thead class="table-dark">
+      <tr>
+        <th>ID</th>
+        <th>Item</th>
+        <th>Change Type</th>
+        <th>Qty Changed</th>
+        <th>Changed By</th>
+        <th>Timestamp</th>
+      </tr>
+    </thead>
+    <tbody id="changesTable"></tbody>
+  </table>
+</div>
+
+<script>
+const token = localStorage.getItem("access");
+
+async function loadReport() {
+  const res = await fetch("/api/inventory/reports/", {
+    headers: { "Authorization": "Bearer " + token }
+  });
+  const data = await res.json();
+
+  // Total value
+  document.getElementById("totalValue").textContent = "$" + data.total_value;
+
+  // Stock levels
+  document.getElementById("stockTable").innerHTML =
+    data.stock_levels.map(s => `
+      <tr>
+        <td>${s.id}</td>
+        <td>${s.name}</td>
+        <td>${s.quantity}</td>
+      </tr>
+    `).join("");
+
+  // Changes
+  document.getElementById("changesTable").innerHTML =
+    data.changes.map(c => `
+      <tr>
+        <td>${c.id}</td>
+        <td>${c.item}</td>
+        <td>${c.change_type}</td>
+        <td>${c.quantity_changed}</td>
+        <td>${c.changed_by}</td>
+        <td>${new Date(c.timestamp).toLocaleString()}</td>
+      </tr>
+    `).join("");
+}
+
+loadReport();
+</script>
+{% endblock %}

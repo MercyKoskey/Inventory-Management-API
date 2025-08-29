@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Login</h2>
+<form id="loginForm">
+  <input class="form-control mb-2" placeholder="Email" name="email" required>
+  <input class="form-control mb-2" type="password" placeholder="Password" name="password" required>
+  <button class="btn btn-secondary">Login</button>
+</form>
+
+<script>
+document.getElementById("loginForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const formData = Object.fromEntries(new FormData(e.target).entries());
+  const res = await fetch("/api/login/", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify(formData)
+  });
+  if (res.ok) {
+    const data = await res.json();
+    localStorage.setItem("access", data.access);
+    localStorage.setItem("refresh", data.refresh);
+    window.location.href = '/items'
+  } else alert("Login failed");
+};
+</script>
+{% endblock %}
